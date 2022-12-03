@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: run small client",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/small_client.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: run small server",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/small_server.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "ESP-IDF Debug: Launch",
+      "type": "espidf",
+      "request": "launch"
+    }
+  ]
+}
