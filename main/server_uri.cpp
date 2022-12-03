@@ -222,7 +222,119 @@ const httpd_uri_t relais_get_uri = {
     .handler   = relais_get_handler
 };
 
+extern const unsigned char color_picker_start[] asm("_binary_color_picker_js_gz_start");
+extern const unsigned char color_picker_end[] asm("_binary_color_picker_js_gz_end");
+esp_err_t color_picker_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(color_picker_start);
+    size_t file_len = color_picker_end - color_picker_start;
 
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t color_picker_uri = {
+    .uri       = "/static/js/color_picker.js",
+    .method    = HTTP_GET,
+    .handler   = color_picker_handler
+};
+
+extern const unsigned char flowbite_js_start[] asm("_binary_flowbite_js_gz_start");
+extern const unsigned char flowbite_js_end[] asm("_binary_flowbite_js_gz_end");
+esp_err_t flowbite_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(flowbite_js_start);
+    size_t file_len = flowbite_js_end - flowbite_js_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t flowbite_uri = {
+    .uri       = "/static/lib/flowbite.js",
+    .method    = HTTP_GET,
+    .handler   = flowbite_handler
+};
+
+extern const unsigned char flowbite_map_start[] asm("_binary_flowbite_js_map_gz_start");
+extern const unsigned char flowbite_map_end[] asm("_binary_flowbite_js_map_gz_end");
+esp_err_t flowbite_map_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(flowbite_map_start);
+    size_t file_len = flowbite_map_end - flowbite_map_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t flowbite_map_uri = {
+    .uri       = "/static/lib/flowbite.js.map",
+    .method    = HTTP_GET,
+    .handler   = flowbite_map_handler
+};
+
+extern const unsigned char index_start[] asm("_binary_index_html_gz_start");
+extern const unsigned char index_end[] asm("_binary_index_html_gz_end");
+esp_err_t index_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(index_start);
+    size_t file_len = index_end - index_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t index_uri = {
+    .uri       = "/",
+    .method    = HTTP_GET,
+    .handler   = index_handler
+};
+
+extern const unsigned char relais_switch_start[] asm("_binary_relais_switch_js_gz_start");
+extern const unsigned char relais_switch_end[] asm("_binary_relais_switch_js_gz_end");
+esp_err_t relais_switch_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(relais_switch_start);
+    size_t file_len = relais_switch_end - relais_switch_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t relais_switch_uri = {
+    .uri       = "/static/js/relais_switch.js",
+    .method    = HTTP_GET,
+    .handler   = relais_switch_handler
+};
+
+extern const unsigned char style_start[] asm("_binary_style_css_gz_start");
+extern const unsigned char style_end[] asm("_binary_style_css_gz_end");
+esp_err_t style_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(style_start);
+    size_t file_len = style_end - style_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "text/css");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t style_uri = {
+    .uri       = "/static/css/style.css",
+    .method    = HTTP_GET,
+    .handler   = style_handler
+};
 
 esp_err_t register_uris(httpd_handle_t& server){
     ESP_LOGI(URI_TAG, "Checking if server exists");
@@ -232,9 +344,25 @@ esp_err_t register_uris(httpd_handle_t& server){
 
     ESP_LOGI(URI_TAG, "Begin adding uris");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_post_uri));
+    ESP_LOGI(URI_TAG, "led post added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_get_uri));
+    ESP_LOGI(URI_TAG, "led get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_post_uri));
+    ESP_LOGI(URI_TAG, "relais post added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_get_uri));
-    ESP_LOGI(URI_TAG, "Added my uris");
+    ESP_LOGI(URI_TAG, "relais get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &color_picker_uri));
+    ESP_LOGI(URI_TAG, "color_picker.js get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &flowbite_uri));
+    ESP_LOGI(URI_TAG, "flowbite.js get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &flowbite_map_uri));
+    ESP_LOGI(URI_TAG, "flowbite.js.map get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &index_uri));
+    ESP_LOGI(URI_TAG, "index.html get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_switch_uri));
+    ESP_LOGI(URI_TAG, "relais_switch.js get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &style_uri));
+    ESP_LOGI(URI_TAG, "style.css get added");
+    ESP_LOGI(URI_TAG, "Added all my uris");
     return ESP_OK;
 }

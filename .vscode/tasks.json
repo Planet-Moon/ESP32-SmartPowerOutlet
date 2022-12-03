@@ -295,6 +295,63 @@
                     }
                 }
             }
+        },
+        {
+            "label": "Run TailwindCss Watcher",
+            "type": "shell",
+            "command": "npx",
+            "args": [
+                "tailwind",
+                "-i",
+                "${workspaceFolder}/LocalServer/static/css/style_input.css",
+                "-o",
+                "${workspaceFolder}/LocalServer/static/css/style.css",
+                "--watch"
+            ],
+            "options": {
+                "env": {
+                    "PATH": "${env:PATH};"
+                }
+            }
+        },
+        {
+            "label": "Run TailwindCss Deploy",
+            "type": "shell",
+            "command": "npx",
+            "args": [
+                "tailwind",
+                "-i",
+                "${workspaceFolder}/LocalServer/static/css/style_input.css",
+                "-o",
+                "${workspaceFolder}/LocalServer/static/css/style.css",
+                "--minify"
+            ],
+            "options": {
+                "env": {
+                    "PATH": "${env:PATH};"
+                }
+            }
+        },
+        {
+            "label": "Gzip static files",
+            "type": "shell",
+            "command": "F:/Programme/gzip/bin/gzip.exe",
+            "args": [
+                "-f",
+                "-k",
+                "-S",
+                ".gz",
+                "-r",
+                "-v",
+                "-9",
+                "${workspaceFolder}/LocalServer/static/*",
+                "${workspaceFolder}/LocalServer/templates/*.html",
+            ],
+            "options": {
+                "env": {
+                    "PATH": "${env:PATH};"
+                }
+            }
         }
     ]
 }

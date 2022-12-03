@@ -1,3 +1,6 @@
+# Compessed files
+*.gz
+
 # Credentials
 authentication.h
 main/certs

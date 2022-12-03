@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"
+        integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-colorpicker/3.4.0/js/bootstrap-colorpicker.min.js"
+        integrity="sha512-94dgCw8xWrVcgkmOc2fwKjO4dqy/X3q7IjFru6MHJKeaAzCvhkVtOS6S+co+RbcZvvPBngLzuVMApmxkuWZGwQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="static/lib/flowbite.js"></script>
+
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-colorpicker/3.4.0/css/bootstrap-colorpicker.css"
+        integrity="sha512-HcfKB3Y0Dvf+k1XOwAD6d0LXRFpCnwsapllBQIvvLtO2KMTa0nI5MtuTv3DuawpsiA0ztTeu690DnMux/SuXJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title>ESP32 Smart Power Outlet</title>
+</head>
+
+<body>
+    <div class="container mx-auto mt-4">
+        <div class="flex flex-row">
+            <!-- Color Picker -->
+            <div class="basis-1/2">
+                <h1 class="mb-4">
+                    Select a color
+                </h1>
+                <div class="mb-4">
+                    <div id="cp2" class="" data-color="#6D2781"></div>
+                    <style>
+                        .colorpicker.colorpicker-2x {
+                            width: 272px;
+                        }
+
+                        .colorpicker-2x .colorpicker-saturation {
+                            width: 200px;
+                            width: 230px;
+                            height: 200px;
+                        }
+
+                        .colorpicker-2x .colorpicker-hue {
+                            width: 30px;
+                            width: 35px;
+                            height: 200px;
+                        }
+
+                        .colorpicker-2x .colorpicker-alpha {
+                            width: 30px;
+                            width: 0px;
+                            height: 200px;
+                        }
+
+                        .colorpicker-2x .colorpicker-alpha,
+                        .colorpicker-2x .colorpicker-preview {
+                            background-size: 20px 20px;
+                            background-position: 0 0, 10px 10px;
+                        }
+
+                        .colorpicker-2x .colorpicker-preview,
+                        .colorpicker-2x .colorpicker-preview div {
+                            height: 30px;
+                            font-size: 16px;
+                            line-height: 160%;
+                        }
+
+                        .colorpicker-saturation .colorpicker-guide {
+                            height: 10px;
+                            width: 10px;
+                            border-radius: 10px;
+                            margin: -5px 0 0 -5px;
+                        }
+
+                    </style>
+                    <script>
+                        $(function () {
+                            $('#cp2').colorpicker({
+                                inline: true,
+                                container: true,
+                                format: null,
+                                useAlpha: false,
+                                customClass: 'colorpicker-2x',
+                                sliders: {
+                                    saturation: {
+                                        maxLeft: 230,
+                                        maxTop: 200
+                                    },
+                                    hue: {
+                                        maxTop: 200
+                                    },
+                                    alpha: {
+                                        maxTop: 200
+                                    }
+                                }
+                            });
+                        });
+                    </script>
+                </div>
+                <button class="btn-primary" type="button" onclick="apply_color()">
+                    Submit color
+                </button>
+            </div>
+            <div class="basis-1/2">
+                <h1 class="mb-4">
+                    Switch Relais
+                </h1>
+                <label class="inline-flex relative items-center mb-4 cursor-pointer">
+                    <input id="relais_switch" type="checkbox" value="" class="sr-only peer">
+                    <div
+                        class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600">
+                    </div>
+                    <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">Switch Relais</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</body>
+
+
+
+<script src="/static/js/color_picker.js"></script>
+<script src="/static/js/relais_switch.js"></script>
+
+</html>
