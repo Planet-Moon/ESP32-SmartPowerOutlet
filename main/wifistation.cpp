@@ -15,6 +15,8 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
+#include "ledctrl.h"
+
 
 /** DEFINES **/
 #define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_OPEN
@@ -28,12 +30,17 @@
 
 /** GLOBALS **/
 
+extern LEDCtrl* myLed;
+
 // event group to contain status information
 static EventGroupHandle_t wifi_event_group;
 
 // retry tracker
 static uint32_t _max_retries = 5;
 static int s_retry_num = 0;
+
+static bool _wifi_connected = false;
+static bool _wifi_connected_old = false;
 
 // task tag
 constexpr char TAG[] = "wifi station";
@@ -74,16 +81,32 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         ESP_LOGI(TAG, "Connecting to AP...");
         esp_err_t err = (esp_wifi_connect());
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        ESP_ERROR_CHECK(err);
+    }
+    else if(event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED){
+        _wifi_connected = true;
+        _max_retries = 0;
+    }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        _wifi_connected = false;
         if (s_retry_num < _max_retries) {
             ESP_LOGI(TAG, "retry to connect to the AP");
             esp_err_t err = esp_wifi_connect();
+            ESP_ERROR_CHECK(err);
             s_retry_num++;
         } else {
             xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
         }
         ESP_LOGI(TAG, "connect to the AP fail");
     }
+
+    if(_wifi_connected == false && _wifi_connected_old == true){
+        myLed->setTo(0,5,0,0); // red
+    }
+    else if(_wifi_connected == true && _wifi_connected_old == false){
+        myLed->setTo(0, 5, 12, 0);
+    }
+    _wifi_connected_old = _wifi_connected;
 }
 
 //event handler for ip events
@@ -94,6 +117,11 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        myLed->setTo(0, 0, 12, 0);
+    }
+    else if(event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP){
+        ESP_LOGW(TAG, "lost ip");
+        myLed->setTo(0, 5, 0, 6);
     }
 }
 
@@ -131,6 +159,7 @@ esp_err_t WifiStation::wifi_init_sta(void) {
     wifi_config.sta.pmf_cfg.capable = true;
     wifi_config.sta.pmf_cfg.required = false;
     wifi_config.sta.bssid_set = false;
+    wifi_config.sta.listen_interval = 3;
 
     // set the wifi controller to be a station
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -139,9 +168,11 @@ esp_err_t WifiStation::wifi_init_sta(void) {
     // start the wifi driver
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
+
     wifi_ps_type_t ps_type = wifi_ps_type_t::WIFI_PS_MAX_MODEM;
     ESP_ERROR_CHECK(esp_wifi_get_ps(&ps_type));
-    ESP_LOGI(TAG, "ESP WiFi power mode: %d", ps_type);
+    ESP_LOGW(TAG, "ESP WiFi power mode: %d", ps_type);
 
     ESP_LOGI(TAG, "wifi_init_sta initialization complete. Waiting for connection...");
     ESP_LOGI(TAG, "Try connecting to ap SSID: \"%s\" password: \"%s\"", wifi_config.sta.ssid, wifi_config.sta.password);

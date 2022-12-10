@@ -1,5 +1,7 @@
 #include "authentication.h"
 #include "esp_log.h"
+#include "esp_sleep.h"
+#include "esp_pm.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led_strip.h"
@@ -40,6 +42,24 @@ void init_nvs() {
     ESP_LOGI("init nvs", "done");
 }
 
+void init_sleep_mode(){
+    ESP_ERROR_CHECK(esp_sleep_enable_wifi_wakeup());
+
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_AUTO));
+    // ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_AUTO));
+    // ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_AUTO));
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_AUTO));
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_CPU, ESP_PD_OPTION_AUTO));
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC8M, ESP_PD_OPTION_AUTO));
+    ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_VDDSDIO, ESP_PD_OPTION_AUTO));
+
+    esp_pm_config_esp32s3_t pm_config;
+    pm_config.max_freq_mhz = 240;
+    pm_config.min_freq_mhz = 20;
+    pm_config.light_sleep_enable = false;
+    // ESP_ERROR_CHECK(esp_pm_configure(&pm_config));
+}
+
 void init_wifi(){
     //initialize the esp network interface
     ESP_ERROR_CHECK(esp_netif_init());
@@ -67,6 +87,7 @@ extern "C" void app_main(void) {
     myLed = new LEDCtrl(BLINK_GPIO, 1);
     init_nvs();
     init_gpio();
+    init_sleep_mode();
     init_wifi();
     ESP_LOGW(LOG_TAG, "Hello, world!");
     myLed->setTo(0, 0, 0, 12);
@@ -117,7 +138,6 @@ extern "C" void app_main(void) {
         return;
     }
 
-    myLed->setTo(0, 0, 12, 0);
     ESP_LOGI(LOG_TAG, "Connected to AP, continue");
 
     int counter = 0;
@@ -133,8 +153,5 @@ extern "C" void app_main(void) {
     ESP_ERROR_CHECK(register_uris(web_server));
 
     ESP_LOGI(LOG_TAG, "Init done. Waiting for requests...");
-
-    while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    ESP_ERROR_CHECK(esp_light_sleep_start());
 }
