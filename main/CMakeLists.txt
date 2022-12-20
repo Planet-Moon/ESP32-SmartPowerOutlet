@@ -25,5 +25,5 @@ idf_component_register(
     EMBED_TXTFILES "certs/servercert.pem"
                     "certs/prvtkey.pem"
 
-    REQUIRES nvs_flash driver led_strip esp_wifi esp_eth esp_https_server json esp_pm
+    REQUIRES nvs_flash driver led_strip esp_wifi esp_eth esp_https_server esp_http_server json esp_pm ntc internal_temperature_sensor mqtt
 )
