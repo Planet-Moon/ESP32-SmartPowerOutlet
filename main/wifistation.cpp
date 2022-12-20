@@ -16,6 +16,7 @@
 #include "lwip/dns.h"
 
 #include "ledctrl.h"
+#include "logger.h"
 
 
 /** DEFINES **/
@@ -30,13 +31,13 @@
 
 /** GLOBALS **/
 
-extern LEDCtrl* myLed;
+static std::shared_ptr<LEDCtrl> myLed;
 
 // event group to contain status information
 static EventGroupHandle_t wifi_event_group;
 
 // retry tracker
-static uint32_t _max_retries = 5;
+static uint32_t _max_retries = 10;
 static int s_retry_num = 0;
 
 static bool _wifi_connected = false;
@@ -78,23 +79,27 @@ WifiStation::~WifiStation() {}
 
 //event handler for wifi events
 void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+    Logger& logger = Logger::getInstance();
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         ESP_LOGI(TAG, "Connecting to AP...");
-        esp_err_t err = (esp_wifi_connect());
+        esp_err_t err = esp_wifi_connect();
         ESP_ERROR_CHECK(err);
     }
     else if(event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED){
         _wifi_connected = true;
         _max_retries = 0;
+        logger.addLog("WiFi", "Connected");
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         _wifi_connected = false;
         if (s_retry_num < _max_retries) {
+            logger.addLog("WiFi", "Disconnected - Retrying. Try "+std::to_string(s_retry_num)+"/"+std::to_string(_max_retries));
             ESP_LOGI(TAG, "retry to connect to the AP");
             esp_err_t err = esp_wifi_connect();
             ESP_ERROR_CHECK(err);
             s_retry_num++;
         } else {
+            logger.addLog("WiFi", "Disconnected - Retry failed");
             xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
         }
         ESP_LOGI(TAG, "connect to the AP fail");
@@ -112,20 +117,24 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
 //event handler for ip events
 static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    Logger& logger = Logger::getInstance();
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
         myLed->setTo(0, 0, 12, 0);
+        logger.addLog("Ip", "Got Ip");
     }
     else if(event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP){
         ESP_LOGW(TAG, "lost ip");
         myLed->setTo(0, 5, 0, 6);
+        logger.addLog("Ip", "Lost Ip");
     }
 }
 
-esp_err_t WifiStation::wifi_init_sta(void) {
+esp_err_t WifiStation::wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed) {
+    myLed = _myLed;
     int status = WIFI_FAILURE;
 
     /** EVENT LOOP CRAZINESS **/
@@ -149,17 +158,32 @@ esp_err_t WifiStation::wifi_init_sta(void) {
         &got_ip_event_instance);
     ESP_ERROR_CHECK(res);
 
+    { // check size of ssid and password before copy
+        bool _error = false;
+        if(_ssid.size() >= 32){
+            ESP_LOGE(TAG, "ssid too long");
+            _error = true;
+        }
+        if(_password.size() >= 64){
+            ESP_LOGE(TAG, "password too long");
+            _error = true;
+        }
+        if(_error)
+            return ESP_FAIL;
+    }
     wifi_config_t wifi_config;
+    memset(wifi_config.sta.ssid, 0, sizeof(wifi_config.sta.ssid));
+    memset(wifi_config.sta.password, 0, sizeof(wifi_config.sta.password));
     strcpy(reinterpret_cast<char*>(wifi_config.sta.ssid), _ssid.c_str());
     strcpy(reinterpret_cast<char*>(wifi_config.sta.password), _password.c_str());
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_OPEN; // WIFI_AUTH_WPA_WPA2_PSK;
     wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
     wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
     wifi_config.sta.channel = 0; // unknown = 0
-    wifi_config.sta.pmf_cfg.capable = true;
+    wifi_config.sta.pmf_cfg.capable = true; // deprecated
     wifi_config.sta.pmf_cfg.required = false;
-    wifi_config.sta.bssid_set = false;
-    wifi_config.sta.listen_interval = 3;
+    wifi_config.sta.bssid_set = false; // generally set to false
+    wifi_config.sta.listen_interval = 3; // 0 -> 3 as default
 
     // set the wifi controller to be a station
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -197,10 +221,10 @@ esp_err_t WifiStation::wifi_init_sta(void) {
         status = WIFI_FAIL_BIT;
     }
 
-    /* The event will not be processed after unregister */
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_event_instance));
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_handler_event_instance));
-    vEventGroupDelete(wifi_event_group);
+    // /* The event will not be processed after unregister */
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, got_ip_event_instance));
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_handler_event_instance));
+    // vEventGroupDelete(wifi_event_group);
 
     return status;
 }

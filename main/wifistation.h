@@ -7,13 +7,15 @@
 #include "freertos/event_groups.h"
 // #include "freertos/task.h"
 #include <string>
+#include "ledctrl.h"
+#include <memory>
 
 class WifiStation {
 public:
   WifiStation(const std::string &ssid, const std::string &password);
   virtual ~WifiStation();
 
-  esp_err_t wifi_init_sta(void);
+  esp_err_t wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed);
 
 protected:
 private:
