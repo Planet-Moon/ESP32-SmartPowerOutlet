@@ -2,27 +2,32 @@
 #include "server_uri.h"
 #include <esp_http_server.h>
 #include "ledctrl.h"
-#include "cJSON.h"
 #include <algorithm>
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include <memory>
+#include "freertos/task.h"
+#include "InternalTemperatureSensor.h"
+#include "logger.h"
+#include <string>
+#ifdef CONFIG_SPO_NTC_ENABLE
+#include "ntc.h"
+#endif // CONFIG_SPO_NTC_ENABLE
 
 #define CONTENT_SIZE 512
 char content[CONTENT_SIZE];
 
-extern LEDCtrl* myLed;
-extern gpio_num_t RELAIS_PIN;
+static std::shared_ptr<LEDCtrl> myLed;
+static const gpio_num_t* RELAIS_PIN;
 
 struct Relais{
     bool state = false;
     bool init = false;
 };
 
-Relais myRelais;
+static Relais myRelais;
 
-
-const char* URI_TAG = "URI";
+static const char* URI_TAG = "URI";
 
 #if FALSE
 esp_err_t post_handler(httpd_req_t *req)
@@ -65,7 +70,9 @@ int clamp(int val, int min, int max){
     return val;
 }
 
-std::unique_ptr<cJSON> parse_request_json(httpd_req_t *req){
+unique_ptr_json parse_request_json(httpd_req_t *req){
+
+
     ESP_LOGI(URI_TAG, "Receiving request with length %d", req->content_len);
     size_t recv_size = std::min(req->content_len, static_cast<size_t>(CONTENT_SIZE));
     ESP_LOGI(URI_TAG, "Reading %d bytes...", recv_size);
@@ -73,22 +80,22 @@ std::unique_ptr<cJSON> parse_request_json(httpd_req_t *req){
     int ret = httpd_req_recv(req, content, recv_size);
     ESP_LOGI(URI_TAG, "bytes got: %d", ret);
     if(ret == 0){
-        return {};
+        return unique_ptr_json(nullptr, json_delete);
     }
     ESP_LOGI(URI_TAG, "Got json: %s", content);
-    std::unique_ptr<cJSON> req_json = std::unique_ptr<cJSON>(cJSON_ParseWithLength(content, recv_size));
+    auto req_json = unique_ptr_json(cJSON_ParseWithLength(content, recv_size), json_delete);
     if(!req_json){
         const char *error_ptr = cJSON_GetErrorPtr();
         if (error_ptr != NULL){
             ESP_LOGE(URI_TAG, "Error parsing JSON %s", error_ptr);
         }
-        return {};
+        return unique_ptr_json(nullptr, json_delete);
     }
     return req_json;
 }
 
 esp_err_t led_post_handler(httpd_req_t *req){
-    auto req_json = parse_request_json(req);
+    unique_ptr_json req_json = parse_request_json(req);
     if(!req_json){
         return ESP_FAIL;
     }
@@ -155,10 +162,12 @@ esp_err_t led_get_handler(httpd_req_t *req){
         cJSON_AddNumberToObject(led, "red", led_state[0]);
         cJSON_AddNumberToObject(led, "green", led_state[1]);
         cJSON_AddNumberToObject(led, "blue", led_state[2]);
-        cJSON_AddItemToArray(json,led);
+        cJSON_AddItemToArray(json, led);
     }
-
-    httpd_resp_send(req, cJSON_PrintUnformatted(json), HTTPD_RESP_USE_STRLEN);
+    char* json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    delete json_str;
     return ESP_OK;
 }
 
@@ -169,7 +178,7 @@ const httpd_uri_t led_get_uri = {
 };
 
 esp_err_t relais_post_handler(httpd_req_t *req){
-    std::unique_ptr<cJSON> req_json = parse_request_json(req);
+    unique_ptr_json req_json = parse_request_json(req);
     if(!req_json){
         return ESP_FAIL;
     }
@@ -179,12 +188,12 @@ esp_err_t relais_post_handler(httpd_req_t *req){
     if(cJSON_IsBool(recv_relais_state)){
         bool req_state = recv_relais_state->valueint > 0;
         if(myRelais.state != req_state){
-            gpio_set_level(RELAIS_PIN, static_cast<int>(req_state));
+            gpio_set_level(*RELAIS_PIN, static_cast<int>(req_state));
             myRelais.state = req_state;
             myRelais.init = true;
         }
         else if(!myRelais.init){
-            gpio_set_level(RELAIS_PIN, req_state);
+            gpio_set_level(*RELAIS_PIN, req_state);
             myRelais.state = req_state;
             myRelais.init = true;
         }
@@ -212,7 +221,10 @@ esp_err_t relais_get_handler(httpd_req_t *req){
     cJSON* json = cJSON_CreateObject();
     cJSON_AddBoolToObject(json, "state", myRelais.state);
 
+    char* json_str = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
     httpd_resp_send(req, cJSON_PrintUnformatted(json), HTTPD_RESP_USE_STRLEN);
+    delete json_str;
     return ESP_OK;
 }
 
@@ -336,11 +348,145 @@ const httpd_uri_t style_uri = {
     .handler   = style_handler
 };
 
-esp_err_t register_uris(httpd_handle_t& server){
+// This example demonstrates how a human readable table of run time stats
+// information is generated from raw data provided by uxTaskGetSystemState().
+// The human readable table is written to pcWriteBuffer
+unique_ptr_json vTaskGetRunTimeStats(){
+    auto pcWriteBuffer = unique_ptr_json(cJSON_CreateObject(), json_delete);
+    uint32_t ulTotalRunTime;
+    float ulStatsAsPercentage;
+
+    // Take a snapshot of the number of tasks in case it changes while this
+    // function is executing.
+    UBaseType_t uxArraySize = uxTaskGetNumberOfTasks();
+    cJSON_AddNumberToObject(pcWriteBuffer.get(), "number_of_tasks", uxArraySize);
+
+    // Allocate a TaskStatus_t structure for each task.  An array could be
+    // allocated statically at compile time.
+    TaskStatus_t* pxTaskStatusArray = reinterpret_cast<TaskStatus_t*>(pvPortMalloc( uxArraySize * sizeof( TaskStatus_t ) ));
+
+    if( pxTaskStatusArray != NULL )
+    {
+        // Generate raw status information about each task.
+        uxArraySize = uxTaskGetSystemState( pxTaskStatusArray, uxArraySize, &ulTotalRunTime );
+
+        // // For percentage calculations.
+        // ulTotalRunTime /= 100UL;
+
+        cJSON_AddNumberToObject(pcWriteBuffer.get(), "total_run_time", ulTotalRunTime);
+
+        // For each populated position in the pxTaskStatusArray array,
+        // format the raw data as human readable ASCII data
+        for( UBaseType_t x = 0; x < uxArraySize; x++ )
+        {
+            cJSON* task = cJSON_CreateObject();
+
+            // Avoid divide by zero errors.
+            if( ulTotalRunTime > 0 ){
+                // What percentage of the total run time has the task used?
+                // This will always be rounded down to the nearest integer.
+                // ulTotalRunTimeDiv100 has already been divided by 100.
+                ulStatsAsPercentage = 100*pxTaskStatusArray[ x ].ulRunTimeCounter / static_cast<float>(ulTotalRunTime);
+                cJSON_AddNumberToObject(task, "run_time_counter_percent", ulStatsAsPercentage);
+            }
+
+            cJSON_AddNumberToObject(task, "run_time_counter", pxTaskStatusArray[ x ].ulRunTimeCounter);
+            cJSON_AddItemToObject(pcWriteBuffer.get(), pxTaskStatusArray[ x ].pcTaskName, task);
+        }
+    }
+
+    // The array is no longer needed, free the memory it consumes.
+    vPortFree( pxTaskStatusArray );
+
+    return pcWriteBuffer;
+}
+
+std::string LUT(const esp_reset_reason_t& reason); // from main.cpp
+esp_err_t system_status_handler(httpd_req_t *req){
+    unique_ptr_json json = unique_ptr_json(cJSON_CreateObject(), json_delete);
+    unique_ptr_json tasks_json = vTaskGetRunTimeStats();
+    cJSON_AddItemToObject(json.get(), "tasks", tasks_json.release());
+
+    cJSON_AddNumberToObject(json.get(), "free_heap_size", esp_get_free_heap_size());
+    cJSON_AddNumberToObject(json.get(), "free_internal_heap_size", esp_get_free_internal_heap_size());
+    cJSON_AddNumberToObject(json.get(), "minimum_free_heap_size", esp_get_minimum_free_heap_size());
+
+    const esp_reset_reason_t reset_reason = esp_reset_reason();
+    cJSON_AddNumberToObject(json.get(), "reset_reason", reset_reason);
+    cJSON_AddStringToObject(json.get(), "reset_reason_str", LUT(reset_reason).c_str());
+
+    InternalTemperatureSensor& temperatureSensor = InternalTemperatureSensor::getInstance();
+    cJSON_AddNumberToObject(json.get(), "internal_temperature", temperatureSensor.readTemperature());
+
+#ifdef CONFIG_SPO_NTC_ENABLE
+    const float temperature = ntc::readTemperature();
+    cJSON_AddNumberToObject(json.get(), "temperature", temperature);
+#endif // CONFIG_SPO_NTC_ENABLE
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/json");
+
+    char* json_str = cJSON_PrintUnformatted(json.get());
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    delete json_str;
+    return ESP_OK;
+}
+
+const httpd_uri_t system_status_uri = {
+    .uri = "/system",
+    .method = HTTP_GET,
+    .handler = system_status_handler
+};
+
+esp_err_t logger_handler(httpd_req_t *req){
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/json");
+
+    Logger& logger = Logger::getInstance();
+    unique_ptr_json json = logger.getLog();
+    char* json_str = cJSON_PrintUnformatted(json.get());
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    delete json_str;
+    return ESP_OK;
+}
+
+const httpd_uri_t logger_uri = {
+    .uri = "/logger",
+    .method = HTTP_GET,
+    .handler = logger_handler
+};
+
+static long _counter = 0;
+esp_err_t counter_handler(httpd_req_t *req){
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/json");
+
+    unique_ptr_json json = unique_ptr_json(cJSON_CreateObject(), json_delete);
+    cJSON_AddNumberToObject(json.get(), "counter", _counter);
+    char* json_str = cJSON_PrintUnformatted(json.get());
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
+    delete json_str;
+    _counter++;
+    if(_counter >= LONG_MAX){
+        _counter = 0;
+    }
+    return ESP_OK;
+}
+
+const httpd_uri_t counter_uri = {
+    .uri = "/counter",
+    .method = HTTP_GET,
+    .handler = counter_handler
+};
+
+esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed, const gpio_num_t* _RELAIS_PIN){
     ESP_LOGI(URI_TAG, "Checking if server exists");
     if(server == NULL)
         return ESP_FAIL;
     memset(content, 0, CONTENT_SIZE);
+
+    myLed = _myLed;
+    RELAIS_PIN = _RELAIS_PIN;
 
     ESP_LOGI(URI_TAG, "Begin adding uris");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_post_uri));
@@ -363,6 +509,12 @@ esp_err_t register_uris(httpd_handle_t& server){
     ESP_LOGI(URI_TAG, "relais_switch.js get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &style_uri));
     ESP_LOGI(URI_TAG, "style.css get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &system_status_uri));
+    ESP_LOGI(URI_TAG, "sytem_status get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &logger_uri));
+    ESP_LOGI(URI_TAG, "logger get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &counter_uri));
+    ESP_LOGI(URI_TAG, "counter get added");
     ESP_LOGI(URI_TAG, "Added all my uris");
     return ESP_OK;
 }

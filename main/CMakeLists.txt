@@ -7,6 +7,7 @@ set(SRC
     "wifiscan.cpp"
     "ledctrl.cpp"
     "server_uri.cpp"
+    "logger.cpp"
 )
 
 idf_component_register(
