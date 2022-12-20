@@ -14,7 +14,7 @@ class WifiScanner {
 public:
   std::vector<wifi_ap_record_t> getAps() { return _aps; }
   void scan();
-  const wifi_ap_record_t *filterSSID(const std::string &ssid) const;
+  const wifi_ap_record_t* filterSSID(const std::string &ssid) const;
   static void logAp(const wifi_ap_record_t *record);
 
 private:

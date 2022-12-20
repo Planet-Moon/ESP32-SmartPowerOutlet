@@ -135,43 +135,44 @@ void run_scan(void) {
 #endif
 
 void WifiScanner::scan() {
-  uint16_t number = DEFAULT_SCAN_LIST_SIZE;
-  wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
-  uint16_t ap_count = 0;
+    uint16_t number = DEFAULT_SCAN_LIST_SIZE;
+    wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
+    uint16_t ap_count = 0;
 
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_ERROR_CHECK(esp_wifi_start());
-  esp_wifi_scan_start(NULL, true);
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-  ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
-  for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++) {
-    WifiScanner::logAp(&ap_info[i]);
-    _aps.push_back(ap_info[i]);
-  }
-  ESP_ERROR_CHECK(esp_wifi_stop());
-  ESP_ERROR_CHECK(esp_wifi_restore());
-  ESP_LOGI(TAG, "Scan complete.\n");
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    esp_wifi_scan_start(NULL, true);
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+    ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+    ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
+    for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++) {
+        WifiScanner::logAp(&ap_info[i]);
+        _aps.push_back(ap_info[i]);
+    }
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    ESP_ERROR_CHECK(esp_wifi_restore());
+    ESP_LOGI(TAG, "Scan complete.\n");
 }
 
-const wifi_ap_record_t *WifiScanner::filterSSID(const std::string &ssid) const {
-    auto iter = std::find_if(
-        _aps.begin(), _aps.end(), [&ssid](const wifi_ap_record_t &ap_record) {
-        const char *ap_ssid = reinterpret_cast<const char *>(ap_record.ssid);
-        return strcmp(ap_ssid, ssid.c_str()) == 0;
-    });
-    if (iter == _aps.end())
+const wifi_ap_record_t* WifiScanner::filterSSID(const std::string &ssid) const {
+    auto iter = std::find_if(_aps.begin(), _aps.end(),
+        [&ssid](const wifi_ap_record_t &ap_record) {
+            const char *ap_ssid = reinterpret_cast<const char *>(ap_record.ssid);
+            return strcmp(ap_ssid, ssid.c_str()) == 0;
+        });
+    if (iter != _aps.end()){
+        return &(*iter);
+    }
     return nullptr;
-    return &(*iter);
 }
 
 void WifiScanner::logAp(const wifi_ap_record_t *record) {
-  const char *_tag = "WifiScanner::logAp";
-  ESP_LOGI(_tag, "SSID \t\t%s", record->ssid);
-  ESP_LOGI(_tag, "RSSI \t\t%d", record->rssi);
-  print_auth_mode(record->authmode);
-  if (record->authmode != WIFI_AUTH_WEP) {
-    print_cipher_type(record->pairwise_cipher, record->group_cipher);
-  }
-  ESP_LOGI(_tag, "Channel \t\t%d\n", record->primary);
+    const char *_tag = "WifiScanner::logAp";
+    ESP_LOGI(_tag, "SSID \t\t%s", record->ssid);
+    ESP_LOGI(_tag, "RSSI \t\t%d", record->rssi);
+    print_auth_mode(record->authmode);
+    if (record->authmode != WIFI_AUTH_WEP) {
+        print_cipher_type(record->pairwise_cipher, record->group_cipher);
+    }
+    ESP_LOGI(_tag, "Channel \t\t%d\n", record->primary);
 }
