@@ -1,11 +1,10 @@
 set(SRC
+    "main.cpp"
+    "ledctrl.cpp"
+    "wifiscan.cpp"
+    "wifistation.cpp"
     "https_handlers.cpp"
     "http_handlers.cpp"
-    "wifistation.cpp"
-    "ledctrl.cpp"
-    "main.cpp"
-    "wifiscan.cpp"
-    "ledctrl.cpp"
     "server_uri.cpp"
     "logger.cpp"
 )
