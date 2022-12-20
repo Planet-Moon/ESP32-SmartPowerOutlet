@@ -223,7 +223,7 @@ esp_err_t relais_get_handler(httpd_req_t *req){
 
     char* json_str = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
-    httpd_resp_send(req, cJSON_PrintUnformatted(json), HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
     delete json_str;
     return ESP_OK;
 }
