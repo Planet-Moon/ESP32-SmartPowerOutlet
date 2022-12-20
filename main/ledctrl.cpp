@@ -4,6 +4,10 @@
 #include "freertos/task.h"
 #include <cassert>
 
+LEDCtrl::LEDCtrl(){
+
+}
+
 LEDCtrl::LEDCtrl(uint32_t gpio_pin, uint32_t number) {
     assert(number > 0 && "number of leds must be greater than 0");
     _led_number = number;
