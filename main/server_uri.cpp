@@ -104,11 +104,7 @@ esp_err_t led_post_handler(httpd_req_t *req){
     uint32_t g = 0;
     uint32_t b = 0;
 
-    const cJSON* color_red = NULL;
-    const cJSON* color_green = NULL;
-    const cJSON* color_blue = NULL;
-
-    color_red = cJSON_GetObjectItemCaseSensitive(req_json.get(), "red");
+    const cJSON* color_red = cJSON_GetObjectItemCaseSensitive(req_json.get(), "red");
     if(cJSON_IsNumber(color_red)){
         int i = color_red->valueint;
         r = clamp(i, 0, 254);
@@ -117,7 +113,7 @@ esp_err_t led_post_handler(httpd_req_t *req){
         ESP_LOGW(URI_TAG, "red is not a number");
     }
 
-    color_green = cJSON_GetObjectItemCaseSensitive(req_json.get(), "green");
+    const cJSON* color_green = cJSON_GetObjectItemCaseSensitive(req_json.get(), "green");
     if(cJSON_IsNumber(color_green)){
         int i = color_green->valueint;
         g = clamp(i, 0, 254);
@@ -126,7 +122,7 @@ esp_err_t led_post_handler(httpd_req_t *req){
         ESP_LOGW(URI_TAG, "green is not a number");
     }
 
-    color_blue = cJSON_GetObjectItemCaseSensitive(req_json.get(), "blue");
+    const cJSON* color_blue = cJSON_GetObjectItemCaseSensitive(req_json.get(), "blue");
     if(cJSON_IsNumber(color_blue)){
         int i = color_blue->valueint;
         b = clamp(i, 0, 254);
@@ -153,21 +149,19 @@ esp_err_t led_get_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
     httpd_resp_set_type(req, "application/json");
 
-    cJSON* json = cJSON_CreateArray();
+    auto json = unique_json(cJSON_CreateArray());
 
     const uint32_t n_led = myLed->getNumberOfLed();
     for(uint32_t i = 0; i < n_led; ++i){
         std::array<uint32_t, 3> led_state = myLed->getLedColor(i);
-        cJSON* led = cJSON_CreateObject();
-        cJSON_AddNumberToObject(led, "red", led_state[0]);
-        cJSON_AddNumberToObject(led, "green", led_state[1]);
-        cJSON_AddNumberToObject(led, "blue", led_state[2]);
-        cJSON_AddItemToArray(json, led);
+        auto led = unique_json(cJSON_CreateObject());
+        cJSON_AddNumberToObject(led.get(), "red", led_state[0]);
+        cJSON_AddNumberToObject(led.get(), "green", led_state[1]);
+        cJSON_AddNumberToObject(led.get(), "blue", led_state[2]);
+        cJSON_AddItemToArray(json.get(), led.release());
     }
-    char* json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
-    delete json_str;
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -183,7 +177,7 @@ esp_err_t relais_post_handler(httpd_req_t *req){
         return ESP_FAIL;
     }
 
-    cJSON* recv_relais_state = cJSON_GetObjectItemCaseSensitive(req_json.get(), "state");
+    const cJSON* recv_relais_state = cJSON_GetObjectItemCaseSensitive(req_json.get(), "state");
 
     if(cJSON_IsBool(recv_relais_state)){
         bool req_state = recv_relais_state->valueint > 0;
@@ -218,13 +212,11 @@ esp_err_t relais_get_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
     httpd_resp_set_type(req, "application/json");
 
-    cJSON* json = cJSON_CreateObject();
-    cJSON_AddBoolToObject(json, "state", myRelais.state);
+    auto json = unique_json(cJSON_CreateObject());
+    cJSON_AddBoolToObject(json.get(), "state", myRelais.state);
 
-    char* json_str = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
-    delete json_str;
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -379,7 +371,7 @@ unique_ptr_json vTaskGetRunTimeStats(){
         // format the raw data as human readable ASCII data
         for( UBaseType_t x = 0; x < uxArraySize; x++ )
         {
-            cJSON* task = cJSON_CreateObject();
+            auto task = unique_json(cJSON_CreateObject());
 
             // Avoid divide by zero errors.
             if( ulTotalRunTime > 0 ){
@@ -387,11 +379,11 @@ unique_ptr_json vTaskGetRunTimeStats(){
                 // This will always be rounded down to the nearest integer.
                 // ulTotalRunTimeDiv100 has already been divided by 100.
                 ulStatsAsPercentage = 100*pxTaskStatusArray[ x ].ulRunTimeCounter / static_cast<float>(ulTotalRunTime);
-                cJSON_AddNumberToObject(task, "run_time_counter_percent", ulStatsAsPercentage);
+                cJSON_AddNumberToObject(task.get(), "run_time_counter_percent", ulStatsAsPercentage);
             }
 
-            cJSON_AddNumberToObject(task, "run_time_counter", pxTaskStatusArray[ x ].ulRunTimeCounter);
-            cJSON_AddItemToObject(pcWriteBuffer.get(), pxTaskStatusArray[ x ].pcTaskName, task);
+            cJSON_AddNumberToObject(task.get(), "run_time_counter", pxTaskStatusArray[ x ].ulRunTimeCounter);
+            cJSON_AddItemToObject(pcWriteBuffer.get(), pxTaskStatusArray[ x ].pcTaskName, task.release());
         }
     }
 
@@ -426,9 +418,8 @@ esp_err_t system_status_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
     httpd_resp_set_type(req, "application/json");
 
-    char* json_str = cJSON_PrintUnformatted(json.get());
-    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
-    delete json_str;
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -444,9 +435,8 @@ esp_err_t logger_handler(httpd_req_t *req){
 
     Logger& logger = Logger::getInstance();
     unique_ptr_json json = logger.getLog();
-    char* json_str = cJSON_PrintUnformatted(json.get());
-    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
-    delete json_str;
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -463,9 +453,8 @@ esp_err_t counter_handler(httpd_req_t *req){
 
     unique_ptr_json json = unique_ptr_json(cJSON_CreateObject(), json_delete);
     cJSON_AddNumberToObject(json.get(), "counter", _counter);
-    char* json_str = cJSON_PrintUnformatted(json.get());
-    httpd_resp_send(req, json_str, HTTPD_RESP_USE_STRLEN);
-    delete json_str;
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
     _counter++;
     if(_counter >= LONG_MAX){
         _counter = 0;
