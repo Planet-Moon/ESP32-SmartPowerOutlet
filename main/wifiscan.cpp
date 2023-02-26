@@ -96,44 +96,6 @@ void print_cipher_type(int pairwise_cipher, int group_cipher) {
   }
 }
 
-#if false
-void wifi_scan(void) {
-  uint16_t number = DEFAULT_SCAN_LIST_SIZE;
-  wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
-  uint16_t ap_count = 0;
-  memset(ap_info, 0, sizeof(ap_info));
-
-  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-  ESP_ERROR_CHECK(esp_wifi_start());
-  esp_wifi_scan_start(NULL, true);
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-  ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
-  for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++) {
-    ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
-    ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
-    print_auth_mode(ap_info[i].authmode);
-    if (ap_info[i].authmode != WIFI_AUTH_WEP) {
-      print_cipher_type(ap_info[i].pairwise_cipher, ap_info[i].group_cipher);
-    }
-    ESP_LOGI(TAG, "Channel \t\t%d\n", ap_info[i].primary);
-  }
-}
-
-void run_scan(void) {
-  // Initialize NVS
-  esp_err_t ret = nvs_flash_init();
-  if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
-      ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    ret = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(ret);
-
-  wifi_scan();
-}
-#endif
-
 void WifiScanner::scan() {
     uint16_t number = DEFAULT_SCAN_LIST_SIZE;
     wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
@@ -152,6 +114,8 @@ void WifiScanner::scan() {
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_restore());
     ESP_LOGI(TAG, "Scan complete.\n");
+    ESP_ERROR_CHECK(esp_wifi_stop());
+    ESP_ERROR_CHECK(esp_wifi_restore());
 }
 
 const wifi_ap_record_t* WifiScanner::filterSSID(const std::string &ssid) const {
