@@ -40,9 +40,13 @@ void LEDCtrl::testled() {
 
 void LEDCtrl::setTo(uint32_t idx, uint32_t r, uint32_t g, uint32_t b) {
     if (idx < _led_number) {
-        ESP_ERROR_CHECK(led_strip_set_pixel(_led_handle, idx, r, g, b));
-        ESP_ERROR_CHECK(led_strip_refresh(_led_handle));
-        _led_colors[idx] = {r,g,b};
+        _led_colors[idx].r = r;
+        _led_colors[idx].g = g;
+        _led_colors[idx].b = b;
+        if(_led_colors[idx].on){
+            ESP_ERROR_CHECK(led_strip_set_pixel(_led_handle, idx, r, g, b));
+            ESP_ERROR_CHECK(led_strip_refresh(_led_handle));
+        }
         ESP_LOGI("setTo", "led %lu to %lu, %lu, %lu", idx, r, g, b);
     } else {
         ESP_LOGE("LEDCtrl", "Led %lu not in range %lu", idx, _led_number);
@@ -51,9 +55,21 @@ void LEDCtrl::setTo(uint32_t idx, uint32_t r, uint32_t g, uint32_t b) {
 
 std::array<uint32_t, 3> LEDCtrl::getLedColor(uint32_t idx) const {
     if (idx < _led_number) {
-        return _led_colors[idx];
+        const LEDState& led_state = _led_colors[idx];
+        return {led_state.r, led_state.g, led_state.b};
     }
     else {
+        ESP_LOGE("LEDCtrl", "Led %lu not in range %lu", idx, _led_number);
+        return {};
+    }
+}
+
+LEDCtrl::LEDState LEDCtrl::getLedState(uint32_t idx) const {
+    if (idx < _led_number) {
+        const LEDState& led_state = _led_colors[idx];
+        return {led_state.r, led_state.g, led_state.b, led_state.on};
+    }
+    else{
         ESP_LOGE("LEDCtrl", "Led %lu not in range %lu", idx, _led_number);
         return {};
     }
@@ -66,4 +82,37 @@ void LEDCtrl::clear() {
 
 uint32_t LEDCtrl::getNumberOfLed() const {
     return _led_number;
+}
+
+void LEDCtrl::turnOff(int32_t idx){
+    if(idx < 0){
+        for(unsigned int i = 0; i < _led_number; ++i){
+            turnOff(i);
+        }
+    }
+    else if (idx < _led_number) {
+        _led_colors[idx].on = false;
+        ESP_ERROR_CHECK(led_strip_set_pixel(_led_handle, idx, 0, 0, 0));
+        ESP_ERROR_CHECK(led_strip_refresh(_led_handle));
+    }
+    else{
+        ESP_LOGE("LEDCtrl", "turnOff: Led %lu not in range %lu", idx, _led_number);
+    }
+}
+
+void LEDCtrl::turnOn(int32_t idx){
+    if(idx < 0){
+        for(unsigned int i = 0; i < _led_number; ++i){
+            turnOn(i);
+        }
+    }
+    else if (idx < _led_number) {
+        LEDState& led_color = _led_colors[idx];
+        led_color.on = true;
+        ESP_ERROR_CHECK(led_strip_set_pixel(_led_handle, idx, led_color.r, led_color.g, led_color.b));
+        ESP_ERROR_CHECK(led_strip_refresh(_led_handle));
+    }
+    else{
+        ESP_LOGE("LEDCtrl", "turnOn: Led %lu not in range %lu", idx, _led_number);
+    }
 }

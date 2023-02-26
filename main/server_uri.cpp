@@ -103,6 +103,7 @@ esp_err_t led_post_handler(httpd_req_t *req){
     uint32_t r = 0;
     uint32_t g = 0;
     uint32_t b = 0;
+    bool on = false;
 
     const cJSON* color_red = cJSON_GetObjectItemCaseSensitive(req_json.get(), "red");
     if(cJSON_IsNumber(color_red)){
@@ -131,6 +132,21 @@ esp_err_t led_post_handler(httpd_req_t *req){
         ESP_LOGW(URI_TAG, "blue is not a number");
     }
 
+    const cJSON* on_state = cJSON_GetObjectItemCaseSensitive(req_json.get(), "on");
+    if(cJSON_IsBool(on_state)){
+        on = on_state->valueint > 0;
+    }
+    else{
+        ESP_LOGW(URI_TAG, "on is not a boolean");
+    }
+
+    if(on){
+        myLed->turnOn(0);
+    }
+    else{
+        myLed->turnOff(0);
+    }
+
     myLed->setTo(0,r,g,b);
 
     httpd_resp_set_status(req, "200");
@@ -142,7 +158,8 @@ esp_err_t led_post_handler(httpd_req_t *req){
 const httpd_uri_t led_post_uri = {
     .uri       = "/led",
     .method    = HTTP_POST,
-    .handler   = led_post_handler
+    .handler   = led_post_handler,
+    .user_ctx = NULL
 };
 
 esp_err_t led_get_handler(httpd_req_t *req){
@@ -153,11 +170,12 @@ esp_err_t led_get_handler(httpd_req_t *req){
 
     const uint32_t n_led = myLed->getNumberOfLed();
     for(uint32_t i = 0; i < n_led; ++i){
-        std::array<uint32_t, 3> led_state = myLed->getLedColor(i);
+        const LEDCtrl::LEDState led_state = myLed->getLedState(i);
         auto led = unique_json(cJSON_CreateObject());
-        cJSON_AddNumberToObject(led.get(), "red", led_state[0]);
-        cJSON_AddNumberToObject(led.get(), "green", led_state[1]);
-        cJSON_AddNumberToObject(led.get(), "blue", led_state[2]);
+        cJSON_AddNumberToObject(led.get(), "red", led_state.r);
+        cJSON_AddNumberToObject(led.get(), "green", led_state.g);
+        cJSON_AddNumberToObject(led.get(), "blue", led_state.b);
+        cJSON_AddBoolToObject(led.get(), "on", led_state.on);
         cJSON_AddItemToArray(json.get(), led.release());
     }
     auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
@@ -168,7 +186,8 @@ esp_err_t led_get_handler(httpd_req_t *req){
 const httpd_uri_t led_get_uri = {
     .uri       = "/led",
     .method    = HTTP_GET,
-    .handler   = led_get_handler
+    .handler   = led_get_handler,
+    .user_ctx = NULL
 };
 
 esp_err_t relais_post_handler(httpd_req_t *req){
@@ -205,7 +224,8 @@ esp_err_t relais_post_handler(httpd_req_t *req){
 const httpd_uri_t relais_post_uri = {
     .uri       = "/relais",
     .method    = HTTP_POST,
-    .handler   = relais_post_handler
+    .handler   = relais_post_handler,
+    .user_ctx = NULL
 };
 
 esp_err_t relais_get_handler(httpd_req_t *req){
@@ -223,7 +243,8 @@ esp_err_t relais_get_handler(httpd_req_t *req){
 const httpd_uri_t relais_get_uri = {
     .uri       = "/relais",
     .method    = HTTP_GET,
-    .handler   = relais_get_handler
+    .handler   = relais_get_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char color_picker_start[] asm("_binary_color_picker_js_gz_start");
@@ -242,7 +263,8 @@ esp_err_t color_picker_handler(httpd_req_t *req){
 const httpd_uri_t color_picker_uri = {
     .uri       = "/static/js/color_picker.js",
     .method    = HTTP_GET,
-    .handler   = color_picker_handler
+    .handler   = color_picker_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char flowbite_js_start[] asm("_binary_flowbite_js_gz_start");
@@ -261,7 +283,8 @@ esp_err_t flowbite_handler(httpd_req_t *req){
 const httpd_uri_t flowbite_uri = {
     .uri       = "/static/lib/flowbite.js",
     .method    = HTTP_GET,
-    .handler   = flowbite_handler
+    .handler   = flowbite_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char flowbite_map_start[] asm("_binary_flowbite_js_map_gz_start");
@@ -280,7 +303,8 @@ esp_err_t flowbite_map_handler(httpd_req_t *req){
 const httpd_uri_t flowbite_map_uri = {
     .uri       = "/static/lib/flowbite.js.map",
     .method    = HTTP_GET,
-    .handler   = flowbite_map_handler
+    .handler   = flowbite_map_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char index_start[] asm("_binary_index_html_gz_start");
@@ -299,7 +323,8 @@ esp_err_t index_handler(httpd_req_t *req){
 const httpd_uri_t index_uri = {
     .uri       = "/",
     .method    = HTTP_GET,
-    .handler   = index_handler
+    .handler   = index_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char relais_switch_start[] asm("_binary_relais_switch_js_gz_start");
@@ -318,7 +343,8 @@ esp_err_t relais_switch_handler(httpd_req_t *req){
 const httpd_uri_t relais_switch_uri = {
     .uri       = "/static/js/relais_switch.js",
     .method    = HTTP_GET,
-    .handler   = relais_switch_handler
+    .handler   = relais_switch_handler,
+    .user_ctx = NULL
 };
 
 extern const unsigned char style_start[] asm("_binary_style_css_gz_start");
@@ -337,7 +363,8 @@ esp_err_t style_handler(httpd_req_t *req){
 const httpd_uri_t style_uri = {
     .uri       = "/static/css/style.css",
     .method    = HTTP_GET,
-    .handler   = style_handler
+    .handler   = style_handler,
+    .user_ctx = NULL
 };
 
 // This example demonstrates how a human readable table of run time stats
@@ -426,7 +453,8 @@ esp_err_t system_status_handler(httpd_req_t *req){
 const httpd_uri_t system_status_uri = {
     .uri = "/system",
     .method = HTTP_GET,
-    .handler = system_status_handler
+    .handler = system_status_handler,
+    .user_ctx = NULL
 };
 
 esp_err_t logger_handler(httpd_req_t *req){
@@ -443,7 +471,8 @@ esp_err_t logger_handler(httpd_req_t *req){
 const httpd_uri_t logger_uri = {
     .uri = "/logger",
     .method = HTTP_GET,
-    .handler = logger_handler
+    .handler = logger_handler,
+    .user_ctx = NULL
 };
 
 static long _counter = 0;
@@ -465,14 +494,14 @@ esp_err_t counter_handler(httpd_req_t *req){
 const httpd_uri_t counter_uri = {
     .uri = "/counter",
     .method = HTTP_GET,
-    .handler = counter_handler
+    .handler = counter_handler,
+    .user_ctx = NULL
 };
 
 esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed, const gpio_num_t* _RELAIS_PIN){
     ESP_LOGI(URI_TAG, "Checking if server exists");
     if(server == NULL)
         return ESP_FAIL;
-    memset(content, 0, CONTENT_SIZE);
 
     myLed = _myLed;
     RELAIS_PIN = _RELAIS_PIN;
