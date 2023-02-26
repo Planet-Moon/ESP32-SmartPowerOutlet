@@ -87,7 +87,8 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
     }
     else if(event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED){
         _wifi_connected = true;
-        _max_retries = 0;
+        s_retry_num = 0;
+        _max_retries = 1000;
         logger.addLog("WiFi", "Connected");
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
@@ -109,7 +110,7 @@ void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id
         myLed->setTo(0,5,0,0); // red
     }
     else if(_wifi_connected == true && _wifi_connected_old == false){
-        myLed->setTo(0, 5, 12, 0);
+        myLed->setTo(0, 3, 5, 0);
     }
     _wifi_connected_old = _wifi_connected;
 }
@@ -123,7 +124,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
         ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
-        myLed->setTo(0, 0, 12, 0);
+        myLed->setTo(0, 0, 5, 0);
         logger.addLog("Ip", "Got Ip");
     }
     else if(event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP){
@@ -140,9 +141,9 @@ esp_err_t WifiStation::wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed) {
     /** EVENT LOOP CRAZINESS **/
     wifi_event_group = xEventGroupCreate();
 
-    esp_event_handler_instance_t wifi_handler_event_instance;
-
     esp_err_t res;
+
+    esp_event_handler_instance_t wifi_handler_event_instance;
     res = esp_event_handler_instance_register(WIFI_EVENT,
         ESP_EVENT_ANY_ID,
         &wifi_event_handler,
@@ -189,14 +190,14 @@ esp_err_t WifiStation::wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     // set the wifi config
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    // start the wifi driver
-    ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-
     wifi_ps_type_t ps_type = wifi_ps_type_t::WIFI_PS_MAX_MODEM;
     ESP_ERROR_CHECK(esp_wifi_get_ps(&ps_type));
     ESP_LOGW(TAG, "ESP WiFi power mode: %d", ps_type);
+
+    // start the wifi driver
+    ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "wifi_init_sta initialization complete. Waiting for connection...");
     ESP_LOGI(TAG, "Try connecting to ap SSID: \"%s\" password: \"%s\"", wifi_config.sta.ssid, wifi_config.sta.password);
