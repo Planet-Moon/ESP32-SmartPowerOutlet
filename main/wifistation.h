@@ -22,5 +22,3 @@ private:
   std::string _ssid;
   std::string _password;
 };
-
-esp_err_t connect_tcp_server(void);

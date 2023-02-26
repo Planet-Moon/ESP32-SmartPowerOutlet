@@ -226,50 +226,13 @@ esp_err_t WifiStation::wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed) {
     // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_handler_event_instance));
     // vEventGroupDelete(wifi_event_group);
 
+    // esp_event_handler_instance_t wifi_connected_handler_event_instance;
+    // res = esp_event_handler_instance_register(WIFI_EVENT,
+    //     ESP_EVENT_ANY_ID,
+    //     &wifi_connected_event_handler,
+    //     NULL,
+    //     &wifi_connected_handler_event_instance);
+    // ESP_ERROR_CHECK(res);
+
     return status;
-}
-
-
-// connect to the server and return the result
-esp_err_t connect_tcp_server(void)
-{
-	struct sockaddr_in serverInfo = {0};
-	char readBuffer[1024] = {0};
-
-	serverInfo.sin_family = AF_INET;
-    serverInfo.sin_addr.s_addr = 0x8DB2A8C0;
-	serverInfo.sin_port = htons(8885);
-
-
-	int sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock < 0)
-	{
-		ESP_LOGE(TAG, "Failed to create a socket..?");
-		return TCP_FAILURE;
-	}
-
-
-	if (connect(sock, (struct sockaddr *)&serverInfo, sizeof(serverInfo)) != 0)
-	{
-		ESP_LOGE(TAG, "Failed to connect to %s!", inet_ntoa(serverInfo.sin_addr.s_addr));
-		close(sock);
-		return TCP_FAILURE;
-	}
-
-	ESP_LOGI(TAG, "Connected to TCP server.");
-	bzero(readBuffer, sizeof(readBuffer));
-    int r = read(sock, readBuffer, sizeof(readBuffer)-1);
-    std::string recv = "";
-    for(int i = 0; i < r; i++) {
-        putchar(readBuffer[i]);
-        recv += readBuffer[i];
-    }
-    ESP_LOGI(TAG, "Received: %s", recv.c_str());
-
-    if (strcmp(readBuffer, "HELLO") == 0)
-    {
-    	ESP_LOGI(TAG, "WE DID IT!");
-    }
-
-    return TCP_SUCCESS;
 }
