@@ -14,7 +14,7 @@
 
 const char *HTTP_TAG = "HTTP_LOG";
 
-static httpd_handle_t start_webserver()
+httpd_handle_t http_start_webserver()
 {
     httpd_handle_t server = NULL;
 
@@ -56,16 +56,32 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
                             int32_t event_id, void* event_data)
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
-    if (*server == NULL) {
+    if (server == NULL) {
         ESP_LOGI(HTTP_TAG, "Starting webserver");
-        *server = start_webserver();
+        *server = http_start_webserver();
     }
     else{
         ESP_LOGW(HTTP_TAG, "Webserver already running?");
     }
 }
 
+
+// ESP_ERROR_CHECK(register_uris(web_server, myLed, &RELAIS_PIN));
+
+// /* Event source task related definitions */
+// ESP_EVENT_DEFINE_BASE(TASK_EVENTS);
+
 void http_register_callbacks(httpd_handle_t& server){
+
+    // esp_event_loop_args_t http_server_loop_args = {
+    //     .queue_size = 5,
+    //     .task_name = NULL
+    // };
+
+    // esp_event_loop_handle_t http_server_loop_handle;
+    // ESP_ERROR_CHECK(esp_event_loop_create(&http_server_loop_args, &http_server_loop_handle));
+    // ESP_ERROR_CHECK(esp_event_handler_instance_register_with(http_server_loop_handle, TASK_EVENTS, TASK_ITERATION_EVENT, task_iteration_handler, loop_with_task, NULL));
+
     // register callbacks
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));

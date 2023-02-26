@@ -117,7 +117,7 @@ void https_server_user_callback(esp_https_server_user_cb_arg_t *user_cb)
 }
 #endif
 
-httpd_handle_t start_webserver()
+httpd_handle_t https_start_webserver()
 {
     httpd_handle_t server = NULL;
 
@@ -175,7 +175,7 @@ void connect_handler(void* arg, esp_event_base_t event_base,
 {
     httpd_handle_t* server = (httpd_handle_t*) arg;
     if (*server == NULL) {
-        *server = start_webserver();
+        *server = https_start_webserver();
     }
     else{
         ESP_LOGW(HTTPS_TAG, "Webserver already running?");
