@@ -288,18 +288,12 @@ extern "C" void app_main(void) {
     ESP_LOGI(LOG_TAG, "Connected to AP, continue");
     init_SNTP();
 
-    int counter = 0;
-    while(web_server == NULL){
-        if(counter > 11){
-            ESP_LOGE(LOG_TAG, "Webserver not initialized.");
+    web_server = http_start_webserver();
+    if(web_server == NULL){
+        ESP_LOGE(LOG_TAG, "Web server start failed");
             return;
         }
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-        ++counter;
-    }
-
     ESP_ERROR_CHECK(register_uris(web_server, myLed, &RELAIS_PIN));
-
 
     create_wifi_watchdog();
 
