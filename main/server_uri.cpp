@@ -348,6 +348,26 @@ const httpd_uri_t relais_switch_uri = {
     .user_ctx = NULL
 };
 
+extern const unsigned char led_switch_start[] asm("_binary_led_switch_js_gz_start");
+extern const unsigned char led_switch_end[] asm("_binary_led_switch_js_gz_end");
+esp_err_t led_switch_handler(httpd_req_t *req){
+    const char* file = reinterpret_cast<const char*>(led_switch_start);
+    size_t file_len = led_switch_end - led_switch_start;
+
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/javascript");
+    httpd_resp_set_hdr(req,"Content-Encoding", "gzip");
+    httpd_resp_send(req, file, file_len);
+    return ESP_OK;
+}
+
+const httpd_uri_t led_switch_uri = {
+    .uri       = "/static/js/led_switch.js",
+    .method    = HTTP_GET,
+    .handler   = led_switch_handler,
+    .user_ctx = NULL
+};
+
 extern const unsigned char style_start[] asm("_binary_style_css_gz_start");
 extern const unsigned char style_end[] asm("_binary_style_css_gz_end");
 esp_err_t style_handler(httpd_req_t *req){
@@ -526,6 +546,8 @@ esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed,
     ESP_LOGI(URI_TAG, "index.html get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_switch_uri));
     ESP_LOGI(URI_TAG, "relais_switch.js get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_switch_uri));
+    ESP_LOGI(URI_TAG, "led_switch.js get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &style_uri));
     ESP_LOGI(URI_TAG, "style.css get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &system_status_uri));

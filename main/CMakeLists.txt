@@ -20,6 +20,7 @@ idf_component_register(
         "serverfiles/index.html.gz"
         "serverfiles/style.css.gz"
         "serverfiles/relais_switch.js.gz"
+        "serverfiles/led_switch.js.gz"
 
     EMBED_TXTFILES "certs/servercert.pem"
                     "certs/prvtkey.pem"
