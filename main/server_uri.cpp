@@ -100,44 +100,45 @@ esp_err_t led_post_handler(httpd_req_t *req){
         return ESP_FAIL;
     }
 
-    uint32_t r = 0;
-    uint32_t g = 0;
-    uint32_t b = 0;
-    bool on = false;
+    const LEDCtrl::LEDState led_state = myLed->getLedState(0);
+    uint32_t r = led_state.r;
+    uint32_t g = led_state.g;
+    uint32_t b = led_state.b;
+    bool on = led_state.on;
 
     const cJSON* color_red = cJSON_GetObjectItemCaseSensitive(req_json.get(), "red");
-    if(cJSON_IsNumber(color_red)){
+    if(color_red && cJSON_IsNumber(color_red)){
         int i = color_red->valueint;
         r = clamp(i, 0, 254);
     }
     else{
-        ESP_LOGW(URI_TAG, "red is not a number");
+        ESP_LOGW(URI_TAG, "red not found or is not a number");
     }
 
     const cJSON* color_green = cJSON_GetObjectItemCaseSensitive(req_json.get(), "green");
-    if(cJSON_IsNumber(color_green)){
+    if(color_green && cJSON_IsNumber(color_green)){
         int i = color_green->valueint;
         g = clamp(i, 0, 254);
     }
     else{
-        ESP_LOGW(URI_TAG, "green is not a number");
+        ESP_LOGW(URI_TAG, "green not found or is not a number");
     }
 
     const cJSON* color_blue = cJSON_GetObjectItemCaseSensitive(req_json.get(), "blue");
-    if(cJSON_IsNumber(color_blue)){
+    if(color_blue && cJSON_IsNumber(color_blue)){
         int i = color_blue->valueint;
         b = clamp(i, 0, 254);
     }
     else{
-        ESP_LOGW(URI_TAG, "blue is not a number");
+        ESP_LOGW(URI_TAG, "blue not found or is not a number");
     }
 
     const cJSON* on_state = cJSON_GetObjectItemCaseSensitive(req_json.get(), "on");
-    if(cJSON_IsBool(on_state)){
+    if(on_state && cJSON_IsBool(on_state)){
         on = on_state->valueint > 0;
     }
     else{
-        ESP_LOGW(URI_TAG, "on is not a boolean");
+        ESP_LOGW(URI_TAG, "on not found or is not a boolean");
     }
 
     if(on){
