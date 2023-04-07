@@ -7,6 +7,7 @@ set(SRC
     "http_handlers.cpp"
     "server_uri.cpp"
     "logger.cpp"
+    "fft.cpp"
 )
 
 idf_component_register(
@@ -27,3 +28,4 @@ idf_component_register(
 
     REQUIRES nvs_flash driver led_strip esp_wifi esp_eth esp_https_server esp_http_server json esp_pm ntc internal_temperature_sensor mqtt
 )
+add_compile_definitions(_USE_MATH_DEFINES)

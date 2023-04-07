@@ -13,8 +13,9 @@
 #ifdef CONFIG_SPO_NTC_ENABLE
 #include "ntc.h"
 #endif // CONFIG_SPO_NTC_ENABLE
+#include <fft.h>
 
-#define CONTENT_SIZE 512
+#define CONTENT_SIZE 2048
 char content[CONTENT_SIZE];
 
 static std::shared_ptr<LEDCtrl> myLed;
@@ -71,8 +72,6 @@ int clamp(int val, int min, int max){
 }
 
 unique_ptr_json parse_request_json(httpd_req_t *req){
-
-
     ESP_LOGI(URI_TAG, "Receiving request with length %d", req->content_len);
     size_t recv_size = std::min(req->content_len, static_cast<size_t>(CONTENT_SIZE));
     ESP_LOGI(URI_TAG, "Reading %d bytes...", recv_size);
@@ -519,6 +518,34 @@ const httpd_uri_t counter_uri = {
     .user_ctx = NULL
 };
 
+esp_err_t fft_handler(httpd_req_t *req){
+    httpd_resp_set_status(req, "200");
+    httpd_resp_set_type(req, "application/json");
+
+    unique_ptr_json req_json = parse_request_json(req);
+    if(!req_json)
+        return ESP_FAIL;
+
+    fft::Array* array = fft::fromJson(req_json.get());
+    if(!array)
+        return ESP_FAIL;
+
+    fft::transform(*array);
+
+    unique_ptr_json json = fft::toJson(*array);
+
+    auto json_str = unique_char(cJSON_PrintUnformatted(json.get()));
+    httpd_resp_send(req, json_str.get(), HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
+const httpd_uri_t fft_uri = {
+    .uri = "/fft",
+    .method = HTTP_GET,
+    .handler = fft_handler,
+    .user_ctx = NULL
+};
+
 esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed, const gpio_num_t* _RELAIS_PIN){
     ESP_LOGI(URI_TAG, "Checking if server exists");
     if(server == NULL)
@@ -556,6 +583,8 @@ esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed,
     ESP_LOGI(URI_TAG, "logger get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &counter_uri));
     ESP_LOGI(URI_TAG, "counter get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &fft_uri));
+    ESP_LOGI(URI_TAG, "fft get added");
     ESP_LOGI(URI_TAG, "Added all my uris");
     return ESP_OK;
 }
