@@ -19,7 +19,7 @@ httpd_handle_t http_start_webserver()
     httpd_handle_t server = NULL;
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 15;
+    config.max_uri_handlers = 16;
     config.lru_purge_enable = true;
 
     // Start the httpd server

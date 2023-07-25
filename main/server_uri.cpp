@@ -14,6 +14,8 @@
 #include "ntc.h"
 #endif // CONFIG_SPO_NTC_ENABLE
 #include <fft.h>
+#include "esp_ota_ops.h"
+#include "esp_https_ota.h"
 
 #define CONTENT_SIZE 2048
 char content[CONTENT_SIZE];
@@ -546,6 +548,120 @@ const httpd_uri_t fft_uri = {
     .user_ctx = NULL
 };
 
+esp_err_t ota_post_handler(httpd_req_t *req)
+{
+    char *buffer = NULL;
+    int total_len = req->content_len;
+    int received = 0;
+    esp_err_t err = ESP_OK;
+
+    // Set content type to binary
+    httpd_resp_set_type(req, "application/octet-stream");
+
+    // Prepare a buffer to hold the firmware binary
+    buffer = (char *)malloc(total_len);
+    if (!buffer)
+    {
+        ESP_LOGE(URI_TAG, "Failed to allocate memory for the buffer");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory for the buffer");
+        return ESP_FAIL;
+    }
+
+    // Receive the firmware binary in chunks and save it to the buffer
+    while (received < total_len)
+    {
+        int ret = httpd_req_recv(req, buffer + received, total_len - received);
+        if (ret <= 0)
+        {
+            if (ret == HTTPD_SOCK_ERR_TIMEOUT)
+            {
+                continue;
+            }
+            else
+            {
+                ESP_LOGE(URI_TAG, "Error receiving firmware binary");
+                err = ESP_FAIL;
+                break;
+            }
+        }
+        received += ret;
+    }
+
+    // Check if the firmware binary was received successfully
+    if (err == ESP_OK && received == total_len)
+    {
+        // Perform OTA update
+        esp_ota_handle_t ota_handle;
+        const esp_partition_t *ota_partition = esp_ota_get_next_update_partition(NULL);
+
+        if (ota_partition == NULL)
+        {
+            ESP_LOGE(URI_TAG, "Failed to find OTA partition");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to find OTA partition");
+            free(buffer);
+            return ESP_FAIL;
+        }
+
+        ESP_LOGI(URI_TAG, "Starting OTA update...");
+        err = esp_ota_begin(ota_partition, OTA_SIZE_UNKNOWN, &ota_handle);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(URI_TAG, "Error initializing OTA update");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error initializing OTA update");
+            free(buffer);
+            return ESP_FAIL;
+        }
+
+        err = esp_ota_write(ota_handle, buffer, total_len);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(URI_TAG, "Error writing OTA data");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error writing OTA data");
+            esp_ota_end(ota_handle);
+            free(buffer);
+            return ESP_FAIL;
+        }
+
+        err = esp_ota_end(ota_handle);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(URI_TAG, "Error finalizing OTA update");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error finalizing OTA update");
+            free(buffer);
+            return ESP_FAIL;
+        }
+
+        // Set the boot partition to the updated firmware
+        err = esp_ota_set_boot_partition(ota_partition);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(URI_TAG, "Error setting boot partition");
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error setting boot partition");
+            free(buffer);
+            return ESP_FAIL;
+        }
+
+        ESP_LOGI(URI_TAG, "OTA update successful. Rebooting...");
+        httpd_resp_sendstr(req, "OTA update successful. Rebooting...");
+        esp_restart();
+    }
+    else
+    {
+        ESP_LOGE(URI_TAG, "Error receiving firmware binary");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Error receiving firmware binary");
+    }
+
+    free(buffer);
+    return err;
+}
+
+httpd_uri_t ota_post_handler_uri = {
+    .uri = "/ota",
+    .method = HTTP_POST,
+    .handler = ota_post_handler,
+    .user_ctx = NULL
+};
+
 esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed, const gpio_num_t* _RELAIS_PIN){
     ESP_LOGI(URI_TAG, "Checking if server exists");
     if(server == NULL)
@@ -585,6 +701,8 @@ esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed,
     ESP_LOGI(URI_TAG, "counter get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &fft_uri));
     ESP_LOGI(URI_TAG, "fft get added");
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &ota_post_handler_uri));
+    ESP_LOGI(URI_TAG, "ota post added");
     ESP_LOGI(URI_TAG, "Added all my uris");
     return ESP_OK;
 }
