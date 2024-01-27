@@ -15,7 +15,7 @@ public:
   WifiStation(const std::string &ssid, const std::string &password);
   virtual ~WifiStation();
 
-  esp_err_t wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed);
+  esp_err_t wifi_init_sta(LEDCtrl* _myLed);
 
 protected:
 private:

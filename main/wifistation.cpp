@@ -31,7 +31,7 @@
 
 /** GLOBALS **/
 
-static std::shared_ptr<LEDCtrl> myLed;
+static LEDCtrl* myLed = nullptr;
 
 // event group to contain status information
 static EventGroupHandle_t wifi_event_group;
@@ -134,7 +134,7 @@ static void ip_event_handler(void* arg, esp_event_base_t event_base, int32_t eve
     }
 }
 
-esp_err_t WifiStation::wifi_init_sta(std::shared_ptr<LEDCtrl> _myLed) {
+esp_err_t WifiStation::wifi_init_sta(LEDCtrl* _myLed) {
     myLed = _myLed;
     int status = WIFI_FAILURE;
 

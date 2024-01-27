@@ -10,18 +10,17 @@
 #include "wifiscan.h"
 #include "wifistation.h"
 #include <iostream>
-#include <memory>
 #include "esp_wifi.h"
 #include "http_handlers.h"
-#include "https_handlers.h"
+// #include "https_handlers.h"
 #include "server_uri.h"
 #include "driver/gpio.h"
 #include "InternalTemperatureSensor.h"
-#include <memory>
 #include <apps/esp_sntp.h>
 #include "logger.h"
 // #include "MqttClient.h"
 #include "helpers.h"
+#include "CeilingLight.h"
 
 // enable HTTPS in config
 // configUSE_TRACE_FACILITY
@@ -37,7 +36,9 @@ static const uint32_t BLINK_GPIO = 38; // LED pin
 
 static const gpio_num_t RELAIS_PIN = GPIO_NUM_1;
 
-static std::shared_ptr<LEDCtrl> myLed;
+static LEDCtrl myLed;
+
+CeilingLight ceilingLight;
 
 static httpd_handle_t web_server = NULL;
 
@@ -158,10 +159,10 @@ static bool scan_wifi(const std::string& ssid){
     scanner->scan();
     const wifi_ap_record_t* ap = scanner->filterSSID(ssid);
     if (ap != nullptr) {
-        myLed->setTo(0, 12, 3, 0);
+        myLed.setTo(0, 12, 3, 0);
         WifiScanner::logAp(ap);
     } else {
-        myLed->setTo(0, 12, 0, 0);
+        myLed.setTo(0, 12, 0, 0);
     }
     return ap != nullptr;
 }
@@ -206,7 +207,7 @@ void test_json(){
     printf("heap memory: %ld\n\n", free_after);
 }
 
-std::string LUT(const esp_reset_reason_t& reason){
+std::string reset_reason_LUT(const esp_reset_reason_t& reason){
     switch(reason) {
     default:
     case ESP_RST_UNKNOWN:
@@ -239,11 +240,11 @@ extern "C" void app_main(void) {
     ESP_LOGI(LOG_TAG, "[APP] Free memory: %ld bytes", esp_get_free_heap_size());
     ESP_LOGI(LOG_TAG, "[APP] IDF version: %s", esp_get_idf_version());
     const esp_reset_reason_t reset_reason{esp_reset_reason()};
-    ESP_LOGI(LOG_TAG, "[APP] esp_reset_reason: %s", LUT(reset_reason).c_str());
+    ESP_LOGI(LOG_TAG, "[APP] esp_reset_reason: %s", reset_reason_LUT(reset_reason).c_str());
 
     esp_log_level_set("wifi", ESP_LOG_VERBOSE);
 
-    myLed = std::make_shared<LEDCtrl>(BLINK_GPIO, 1);
+    myLed.initialize(BLINK_GPIO, 1);
     init_nvs();
     init_gpio();
     init_sleep_mode();
@@ -251,7 +252,9 @@ extern "C" void app_main(void) {
     vTaskDelay(500 / portTICK_PERIOD_MS);
 
     ESP_LOGW(LOG_TAG, "Hello, world!");
-    myLed->setTo(0, 0, 0, 12);
+    myLed.setTo(0, 0, 0, 12);
+
+    ceilingLight.initialize(GPIO_NUM_2);
 
     ESP_LOGI(LOG_TAG, "Try connecting to station");
     const bool ap_found = scan_wifi(SSID); // scanning
@@ -265,22 +268,22 @@ extern "C" void app_main(void) {
     }
     vTaskDelay(500 / portTICK_PERIOD_MS);
 
-    #if USE_SSL
-        https_register_callbacks(web_server);
-        ESP_LOGW(LOG_TAG, "Using HTTPS");
-    #else
-        http_register_callbacks(web_server);
-        ESP_LOGW(LOG_TAG, "Using HTTP");
-    #endif
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    // #if USE_SSL
+    //     https_register_callbacks(web_server);
+    //     ESP_LOGW(LOG_TAG, "Using HTTPS");
+    // #else
+    //     http_register_callbacks(web_server);
+    //     ESP_LOGW(LOG_TAG, "Using HTTP");
+    // #endif
+    // vTaskDelay(500 / portTICK_PERIOD_MS);
 
     {
         auto station = std::make_shared<WifiStation>(SSID, PASSWORD);
-        esp_err_t status = station->wifi_init_sta(myLed);
+        esp_err_t status = station->wifi_init_sta(&myLed);
         vTaskDelay(500 / portTICK_PERIOD_MS);
         if (status == 2)
         {
-            myLed->setTo(0, 6, 0, 12);
+            myLed.setTo(0, 6, 0, 12);
             ESP_LOGE(LOG_TAG, "Failed to associate to AP, dying...");
             return;
         }
@@ -291,9 +294,9 @@ extern "C" void app_main(void) {
     web_server = http_start_webserver();
     if(web_server == NULL){
         ESP_LOGE(LOG_TAG, "Web server start failed");
-            return;
-        }
-    ESP_ERROR_CHECK(register_uris(web_server, myLed, &RELAIS_PIN));
+        return;
+    }
+    ESP_ERROR_CHECK(register_uris(web_server, &myLed, &RELAIS_PIN));
 
     create_wifi_watchdog();
 
@@ -307,7 +310,7 @@ extern "C" void app_main(void) {
     logger.addLog("app", "Init done");
     vTaskDelay(100 / portTICK_PERIOD_MS);
     std::string reset_log = "Reset reason: "+std::to_string(reset_reason);
-    reset_log += " ("+LUT(reset_reason)+")";
+    reset_log += " ("+reset_reason_LUT(reset_reason)+")";
     logger.addLog("app", reset_log);
 
     // MqttClient& mqttClient = MqttClient::getInstance();
@@ -315,12 +318,16 @@ extern "C" void app_main(void) {
 
     unsigned int task_high_watermark = 0;
     float temp = 0.f;
+
+    logger.addLog("app", "LED test done");
     while (true){
         task_high_watermark = uxTaskGetStackHighWaterMark(NULL);
         ESP_LOGI(LOG_TAG, "main_task_high_watermark: %d", task_high_watermark);
         temp = temperatureSensor.readTemperature();
         ESP_LOGI(LOG_TAG, "Internal temperature: %.2f °C", temp);
+        // ir_sender.carrier(26*150);
         vTaskDelay(20'000 / portTICK_PERIOD_MS);
+        // vTaskDelay(6'000 / portTICK_PERIOD_MS);
     }
 
 }

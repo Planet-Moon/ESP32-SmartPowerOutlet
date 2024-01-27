@@ -16,12 +16,30 @@
 #include <fft.h>
 #include "esp_ota_ops.h"
 #include "esp_https_ota.h"
+#include "CeilingLight.h"
+
+#define _LED
+#define _RELAIS
+#define _COLORPICKER_JS
+#define _FLOWBITE_JS
+#define _INDEX_HTML
+#define _RELAIS_SWITCH_JS
+#define _LED_SWITCH_JS
+#define _STYLE_CSS
+#define _SYSTEM_STATUS
+#define _LOGGER
+#define _COUNTER
+// #define _FFT
+// #define _OTA
+#define _CEILINGLIGHT
 
 #define CONTENT_SIZE 2048
 char content[CONTENT_SIZE];
 
-static std::shared_ptr<LEDCtrl> myLed;
+static LEDCtrl* myLed;
 static const gpio_num_t* RELAIS_PIN;
+
+extern CeilingLight ceilingLight;
 
 struct Relais{
     bool state = false;
@@ -95,6 +113,7 @@ unique_ptr_json parse_request_json(httpd_req_t *req){
     return req_json;
 }
 
+#ifdef _LED
 esp_err_t led_post_handler(httpd_req_t *req){
     unique_ptr_json req_json = parse_request_json(req);
     if(!req_json){
@@ -191,7 +210,9 @@ const httpd_uri_t led_get_uri = {
     .handler   = led_get_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _RELAIS
 esp_err_t relais_post_handler(httpd_req_t *req){
     unique_ptr_json req_json = parse_request_json(req);
     if(!req_json){
@@ -248,7 +269,9 @@ const httpd_uri_t relais_get_uri = {
     .handler   = relais_get_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _COLORPICKER_JS
 extern const unsigned char color_picker_start[] asm("_binary_color_picker_js_gz_start");
 extern const unsigned char color_picker_end[] asm("_binary_color_picker_js_gz_end");
 esp_err_t color_picker_handler(httpd_req_t *req){
@@ -268,7 +291,9 @@ const httpd_uri_t color_picker_uri = {
     .handler   = color_picker_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _FLOWBITE_JS
 extern const unsigned char flowbite_js_start[] asm("_binary_flowbite_js_gz_start");
 extern const unsigned char flowbite_js_end[] asm("_binary_flowbite_js_gz_end");
 esp_err_t flowbite_handler(httpd_req_t *req){
@@ -308,7 +333,9 @@ const httpd_uri_t flowbite_map_uri = {
     .handler   = flowbite_map_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _INDEX_HTML
 extern const unsigned char index_start[] asm("_binary_index_html_gz_start");
 extern const unsigned char index_end[] asm("_binary_index_html_gz_end");
 esp_err_t index_handler(httpd_req_t *req){
@@ -328,7 +355,9 @@ const httpd_uri_t index_uri = {
     .handler   = index_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _RELAIS_SWITCH_JS
 extern const unsigned char relais_switch_start[] asm("_binary_relais_switch_js_gz_start");
 extern const unsigned char relais_switch_end[] asm("_binary_relais_switch_js_gz_end");
 esp_err_t relais_switch_handler(httpd_req_t *req){
@@ -348,7 +377,9 @@ const httpd_uri_t relais_switch_uri = {
     .handler   = relais_switch_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _LED_SWITCH_JS
 extern const unsigned char led_switch_start[] asm("_binary_led_switch_js_gz_start");
 extern const unsigned char led_switch_end[] asm("_binary_led_switch_js_gz_end");
 esp_err_t led_switch_handler(httpd_req_t *req){
@@ -368,7 +399,9 @@ const httpd_uri_t led_switch_uri = {
     .handler   = led_switch_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _STYLE_CSS
 extern const unsigned char style_start[] asm("_binary_style_css_gz_start");
 extern const unsigned char style_end[] asm("_binary_style_css_gz_end");
 esp_err_t style_handler(httpd_req_t *req){
@@ -388,7 +421,9 @@ const httpd_uri_t style_uri = {
     .handler   = style_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _SYSTEM_STATUS
 // This example demonstrates how a human readable table of run time stats
 // information is generated from raw data provided by uxTaskGetSystemState().
 // The human readable table is written to pcWriteBuffer
@@ -442,7 +477,7 @@ unique_ptr_json vTaskGetRunTimeStats(){
     return pcWriteBuffer;
 }
 
-std::string LUT(const esp_reset_reason_t& reason); // from main.cpp
+std::string reset_reason_LUT(const esp_reset_reason_t& reason); // from main.cpp
 esp_err_t system_status_handler(httpd_req_t *req){
     unique_ptr_json json = unique_ptr_json(cJSON_CreateObject(), json_delete);
     unique_ptr_json tasks_json = vTaskGetRunTimeStats();
@@ -454,7 +489,7 @@ esp_err_t system_status_handler(httpd_req_t *req){
 
     const esp_reset_reason_t reset_reason = esp_reset_reason();
     cJSON_AddNumberToObject(json.get(), "reset_reason", reset_reason);
-    cJSON_AddStringToObject(json.get(), "reset_reason_str", LUT(reset_reason).c_str());
+    cJSON_AddStringToObject(json.get(), "reset_reason_str", reset_reason_LUT(reset_reason).c_str());
 
     InternalTemperatureSensor& temperatureSensor = InternalTemperatureSensor::getInstance();
     cJSON_AddNumberToObject(json.get(), "internal_temperature", temperatureSensor.readTemperature());
@@ -478,7 +513,9 @@ const httpd_uri_t system_status_uri = {
     .handler = system_status_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _LOGGER
 esp_err_t logger_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
     httpd_resp_set_type(req, "application/json");
@@ -496,7 +533,9 @@ const httpd_uri_t logger_uri = {
     .handler = logger_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _COUNTER
 static long _counter = 0;
 esp_err_t counter_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
@@ -519,7 +558,9 @@ const httpd_uri_t counter_uri = {
     .handler = counter_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _FFT
 esp_err_t fft_handler(httpd_req_t *req){
     httpd_resp_set_status(req, "200");
     httpd_resp_set_type(req, "application/json");
@@ -547,7 +588,9 @@ const httpd_uri_t fft_uri = {
     .handler = fft_handler,
     .user_ctx = NULL
 };
+#endif
 
+#ifdef _OTA
 esp_err_t ota_post_handler(httpd_req_t *req)
 {
     char *buffer = NULL;
@@ -562,7 +605,7 @@ esp_err_t ota_post_handler(httpd_req_t *req)
     buffer = (char *)malloc(total_len);
     if (!buffer)
     {
-        ESP_LOGE(URI_TAG, "Failed to allocate memory for the buffer");
+        ESP_LOGE(URI_TAG, "Failed to allocate memory for the buffer. Size: %d", total_len);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to allocate memory for the buffer");
         return ESP_FAIL;
     }
@@ -661,8 +704,68 @@ httpd_uri_t ota_post_handler_uri = {
     .handler = ota_post_handler,
     .user_ctx = NULL
 };
+#endif
 
-esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed, const gpio_num_t* _RELAIS_PIN){
+#ifdef _CEILINGLIGHT
+esp_err_t ceilingLight_post_handler(httpd_req_t *req){
+    unique_ptr_json req_json = parse_request_json(req);
+    if(!req_json){
+        return ESP_FAIL;
+    }
+
+    const cJSON* command_json = cJSON_GetObjectItemCaseSensitive(req_json.get(), "cmd");
+    if(command_json && cJSON_IsNumber(command_json)){
+        int cmd = command_json->valueint;
+        switch(cmd){
+            case 0:
+                ceilingLight.toggle_on();
+                break;
+            case 1:
+                ceilingLight.toggle_night();
+                break;
+            case 2:
+                ceilingLight.toggle_brt_m();
+                break;
+            case 3:
+                ceilingLight.toggle_brt_p();
+                break;
+            case 4:
+                ceilingLight.toggle_white();
+                break;
+            case 5:
+                ceilingLight.toggle_warm();
+                break;
+            case 6:
+                ceilingLight.toggle_mode();
+                break;
+            case 7:
+                ceilingLight.toggle_percent100();
+                break;
+            default:
+                break;
+        }
+        httpd_resp_set_status(req, "200");
+        httpd_resp_send(req, "", HTTPD_RESP_USE_STRLEN);
+    }
+    else{
+        ESP_LOGW(URI_TAG, "Command is not a valid number");
+        httpd_resp_set_status(req, "500");
+        httpd_resp_send(req, "Command is not a valid number", HTTPD_RESP_USE_STRLEN);
+    }
+    // httpd_resp_set_type(req, "text/html");
+
+    return ESP_OK;
+}
+
+const httpd_uri_t ceilingLight_post_uri = {
+    .uri       = "/ceilinglight",
+    .method    = HTTP_POST,
+    .handler   = ceilingLight_post_handler,
+    .user_ctx = NULL
+};
+#endif
+
+esp_err_t register_uris(httpd_handle_t& server, LEDCtrl* _myLed, const gpio_num_t* _RELAIS_PIN){
     ESP_LOGI(URI_TAG, "Checking if server exists");
     if(server == NULL)
         return ESP_FAIL;
@@ -671,38 +774,83 @@ esp_err_t register_uris(httpd_handle_t& server, std::shared_ptr<LEDCtrl> _myLed,
     RELAIS_PIN = _RELAIS_PIN;
 
     ESP_LOGI(URI_TAG, "Begin adding uris");
+
+    #ifdef _LED
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_post_uri));
     ESP_LOGI(URI_TAG, "led post added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_get_uri));
     ESP_LOGI(URI_TAG, "led get added");
+    #endif
+
+    #ifdef _RELAIS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_post_uri));
     ESP_LOGI(URI_TAG, "relais post added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_get_uri));
     ESP_LOGI(URI_TAG, "relais get added");
+    #endif
+
+    #ifdef _COLORPICKER_JS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &color_picker_uri));
     ESP_LOGI(URI_TAG, "color_picker.js get added");
+    #endif
+
+    #ifdef _FLOWBITE_JS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &flowbite_uri));
     ESP_LOGI(URI_TAG, "flowbite.js get added");
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &flowbite_map_uri));
     ESP_LOGI(URI_TAG, "flowbite.js.map get added");
+    #endif
+
+    #ifdef _INDEX_HTML
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &index_uri));
     ESP_LOGI(URI_TAG, "index.html get added");
+    #endif
+
+    #ifdef _RELAIS_SWITCH_JS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &relais_switch_uri));
     ESP_LOGI(URI_TAG, "relais_switch.js get added");
+    #endif
+
+    #ifdef _LED_SWITCH_JS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &led_switch_uri));
     ESP_LOGI(URI_TAG, "led_switch.js get added");
+    #endif
+
+    #ifdef _STYLE_CSS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &style_uri));
     ESP_LOGI(URI_TAG, "style.css get added");
+    #endif
+
+    #ifdef _SYSTEM_STATUS
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &system_status_uri));
     ESP_LOGI(URI_TAG, "sytem_status get added");
+    #endif
+
+    #ifdef _LOGGER
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &logger_uri));
     ESP_LOGI(URI_TAG, "logger get added");
+    #endif
+
+    #ifdef _COUNTER
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &counter_uri));
     ESP_LOGI(URI_TAG, "counter get added");
+    #endif
+
+    #ifdef _FFT
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &fft_uri));
     ESP_LOGI(URI_TAG, "fft get added");
+    #endif
+
+    #ifdef _OTA
     ESP_ERROR_CHECK(httpd_register_uri_handler(server, &ota_post_handler_uri));
     ESP_LOGI(URI_TAG, "ota post added");
+    #endif
+
+    #ifdef _CEILINGLIGHT
+    ESP_ERROR_CHECK(httpd_register_uri_handler(server, &ceilingLight_post_uri));
+    ESP_LOGI(URI_TAG, "ceilingLight post added");
+    #endif
+
     ESP_LOGI(URI_TAG, "Added all my uris");
     return ESP_OK;
 }

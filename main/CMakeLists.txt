@@ -8,6 +8,10 @@ set(SRC
     "server_uri.cpp"
     "logger.cpp"
     "fft.cpp"
+    "MqttClient.cpp"
+    "IRSender.cpp"
+    "CeilingLight.cpp"
+    "TimeMeasurement.cpp"
 )
 
 idf_component_register(
@@ -26,7 +30,7 @@ idf_component_register(
 
     EMBED_TXTFILES
         "certs/servercert.pem"
-                    "certs/prvtkey.pem"
+        "certs/prvtkey.pem"
 
     REQUIRES
         nvs_flash
@@ -44,4 +48,6 @@ idf_component_register(
         esp_https_ota
         app_update
 )
+component_compile_definitions("-DUSE_NTC=1")
+# add_compile_definitions(USE_NTC=1)
 add_compile_definitions(_USE_MATH_DEFINES)

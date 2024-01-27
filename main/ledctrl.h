@@ -6,7 +6,7 @@
 class LEDCtrl {
 public:
   LEDCtrl();
-  LEDCtrl(uint32_t gpio_pin, uint32_t number = 1);
+  void initialize(uint32_t gpio_pin, uint32_t number = 1);
   virtual ~LEDCtrl();
 
   struct LEDState{
@@ -31,4 +31,7 @@ private:
   led_strip_handle_t _led_handle = NULL;
   uint32_t _led_number{0};
   std::vector<LEDState> _led_colors{};
+  bool _initialized = false;
+  inline bool _isInitialized() const { return _initialized; }
+  inline bool _checkInitialized() const;
 };

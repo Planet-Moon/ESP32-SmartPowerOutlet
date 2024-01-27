@@ -8,7 +8,9 @@ LEDCtrl::LEDCtrl(){
 
 }
 
-LEDCtrl::LEDCtrl(uint32_t gpio_pin, uint32_t number) {
+void LEDCtrl::initialize(uint32_t gpio_pin, uint32_t number)
+{
+    if(_isInitialized()) return;
     assert(number > 0 && "number of leds must be greater than 0");
     _led_number = number;
     _led_colors.reserve(number);
@@ -23,22 +25,31 @@ LEDCtrl::LEDCtrl(uint32_t gpio_pin, uint32_t number) {
     ESP_ERROR_CHECK(
         led_strip_new_rmt_device(&strip_config, &rmt_config, &_led_handle));
     ESP_ERROR_CHECK(led_strip_clear(_led_handle));
+    _initialized = true;
+}
+
+bool LEDCtrl::_checkInitialized() const {
+    if(_isInitialized()) return true;
+    ESP_LOGE("LEDCtrl", "Led not initialized");
+    return false;
 }
 
 LEDCtrl::~LEDCtrl() { ESP_ERROR_CHECK(led_strip_del(_led_handle)); }
 
 void LEDCtrl::testled() {
-  TickType_t delay = 5'000 / portTICK_PERIOD_MS;
-  setTo(0, 16, 0, 0);
-  vTaskDelay(delay);
-  setTo(0, 0, 0, 16);
-  vTaskDelay(delay);
-  setTo(0, 0, 16, 0);
-  vTaskDelay(delay);
-  clear();
+    if(!_checkInitialized()) return;
+    TickType_t delay = 5'000 / portTICK_PERIOD_MS;
+    setTo(0, 16, 0, 0);
+    vTaskDelay(delay);
+    setTo(0, 0, 0, 16);
+    vTaskDelay(delay);
+    setTo(0, 0, 16, 0);
+    vTaskDelay(delay);
+    clear();
 }
 
 void LEDCtrl::setTo(uint32_t idx, uint32_t r, uint32_t g, uint32_t b) {
+    if(!_checkInitialized()) return;
     if (idx < _led_number) {
         _led_colors[idx].r = r;
         _led_colors[idx].g = g;
@@ -54,6 +65,7 @@ void LEDCtrl::setTo(uint32_t idx, uint32_t r, uint32_t g, uint32_t b) {
 }
 
 std::array<uint32_t, 3> LEDCtrl::getLedColor(uint32_t idx) const {
+    if(!_checkInitialized()) return {};
     if (idx < _led_number) {
         const LEDState& led_state = _led_colors[idx];
         return {led_state.r, led_state.g, led_state.b};
@@ -65,6 +77,7 @@ std::array<uint32_t, 3> LEDCtrl::getLedColor(uint32_t idx) const {
 }
 
 LEDCtrl::LEDState LEDCtrl::getLedState(uint32_t idx) const {
+    if(!_checkInitialized()) return {};
     if (idx < _led_number) {
         const LEDState& led_state = _led_colors[idx];
         return {led_state.r, led_state.g, led_state.b, led_state.on};
@@ -76,15 +89,18 @@ LEDCtrl::LEDState LEDCtrl::getLedState(uint32_t idx) const {
 }
 
 void LEDCtrl::clear() {
-  ESP_ERROR_CHECK(led_strip_clear(_led_handle));
-  //   ESP_LOGI("clear", "all leds cleared");
+    if(!_checkInitialized()) return;
+    ESP_ERROR_CHECK(led_strip_clear(_led_handle));
+    //   ESP_LOGI("clear", "all leds cleared");
 }
 
 uint32_t LEDCtrl::getNumberOfLed() const {
+    if(!_checkInitialized()) return 0;
     return _led_number;
 }
 
 void LEDCtrl::turnOff(int32_t idx){
+    if(!_checkInitialized()) return;
     if(idx < 0){
         for(unsigned int i = 0; i < _led_number; ++i){
             turnOff(i);
@@ -101,6 +117,7 @@ void LEDCtrl::turnOff(int32_t idx){
 }
 
 void LEDCtrl::turnOn(int32_t idx){
+    if(!_checkInitialized()) return;
     if(idx < 0){
         for(unsigned int i = 0; i < _led_number; ++i){
             turnOn(i);
